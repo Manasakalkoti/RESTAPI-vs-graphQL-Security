@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>REST API vs GraphQL Security Lab</title>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --red:      #f85149;
+    --green:    #3fb950;
+    --yellow:   #d29922;
+    --blue:     #58a6ff;
+    --purple:   #bc8cff;
+    --orange:   #ffa657;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 600; color: var(--blue); }
+  header p  { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+  .mode-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 32px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .mode-label { font-size: 0.85rem; color: var(--muted); }
+  .mode-badge {
+    padding: 4px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 700;
+    letter-spacing: 0.05em; transition: all 0.3s;
+  }
+  .mode-badge.vulnerable { background: rgba(248,81,73,0.15); color: var(--red);   border: 1px solid var(--red); }
+  .mode-badge.secured    { background: rgba(63,185,80,0.15);  color: var(--green); border: 1px solid var(--green); }
+
+  .status-bar {
+    display: flex; gap: 20px; margin-left: auto;
+  }
+  .status-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .dot.up   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.down { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+  main { padding: 24px 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 1400px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-header h2 { font-size: 0.95rem; font-weight: 600; }
+  .panel-header .tag {
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+  }
+  .tag.rest    { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid var(--blue); }
+  .tag.graphql { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple); }
+
+  .attack-list { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+  .attack-btn {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 16px; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    width: 100%; text-align: left;
+  }
+  .attack-btn:hover { border-color: var(--blue); background: rgba(88,166,255,0.05); }
+  .attack-btn:active { transform: scale(0.99); }
+  .attack-btn .name  { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .attack-btn .desc  { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+  .attack-btn .arrow { font-size: 1rem; color: var(--muted); }
+
+  .result-badge {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; font-weight: 700;
+    display: none; margin-left: 8px;
+  }
+  .result-badge.succeeded { background: rgba(248,81,73,0.2);  color: var(--red);   border: 1px solid var(--red);   display: inline; }
+  .result-badge.blocked   { background: rgba(63,185,80,0.2);  color: var(--green); border: 1px solid var(--green); display: inline; }
+
+  .output-panel {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .output-header {
+    padding: 12px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .output-header h2 { font-size: 0.95rem; font-weight: 600; }
+  .clear-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.78rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .clear-btn:hover { border-color: var(--text); color: var(--text); }
+
+  #output {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 0.82rem; line-height: 1.6;
+    padding: 18px; min-height: 260px; max-height: 420px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+    color: var(--text);
+  }
+  #output .line-green  { color: var(--green); }
+  #output .line-red    { color: var(--red); }
+  #output .line-yellow { color: var(--yellow); }
+  #output .line-blue   { color: var(--blue); }
+  #output .line-muted  { color: var(--muted); }
+
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border); border-top-color: var(--blue);
+    border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .summary-grid {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+  }
+  .summary-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px; text-align: center;
+  }
+  .summary-card .s-name  { font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
+  .summary-card .s-badge {
+    font-size: 0.78rem; font-weight: 700; padding: 3px 10px;
+    border-radius: 10px; display: inline-block;
+  }
+  .s-badge.succeeded { background: rgba(248,81,73,0.15); color: var(--red);   border: 1px solid var(--red); }
+  .s-badge.blocked   { background: rgba(63,185,80,0.15);  color: var(--green); border: 1px solid var(--green); }
+  .s-badge.pending   { background: rgba(139,148,158,0.1); color: var(--muted); border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>REST API vs GraphQL — Security Lab</h1>
+    <p>Vulnerability demonstration &amp; defence mechanisms</p>
+  </div>
+</header>
+
+<div class="mode-bar">
+  <span class="mode-label">Current Mode:</span>
+  <span class="mode-badge vulnerable" id="modeBadge">VULNERABLE</span>
+  <div class="status-bar">
+    <div class="status-item"><div class="dot" id="restDot"></div> REST API :5050</div>
+    <div class="status-item"><div class="dot" id="gqlDot"></div>  GraphQL  :5001</div>
+  </div>
+</div>
+
+<main>
+
+  <!-- REST Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>REST API Attacks</h2>
+      <span class="tag rest">Port 5050</span>
+    </div>
+    <div class="attack-list">
+      <button class="attack-btn" onclick="runAttack('bola', this)">
+        <div>
+          <div class="name">1 — BOLA / IDOR <span class="result-badge" id="badge-bola"></span></div>
+          <div class="desc">Alice reads Bob &amp; Charlie's orders by changing the ID in the URL</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+      <button class="attack-btn" onclick="runAttack('mass', this)">
+        <div>
+          <div class="name">2 — Mass Assignment <span class="result-badge" id="badge-mass"></span></div>
+          <div class="desc">Injects is_admin: true inside a normal profile update request</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+      <button class="attack-btn" onclick="runAttack('exposure', this)">
+        <div>
+          <div class="name">3 — Excessive Data Exposure <span class="result-badge" id="badge-exposure"></span></div>
+          <div class="desc">Reads password_hash, reset_token, internal_notes from the response</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- GraphQL Panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>GraphQL API Attacks</h2>
+      <span class="tag graphql">Port 5001</span>
+    </div>
+    <div class="attack-list">
+      <button class="attack-btn" onclick="runAttack('introspection', this)">
+        <div>
+          <div class="name">4 — Introspection Abuse <span class="result-badge" id="badge-introspection"></span></div>
+          <div class="desc">Sends __schema query to dump the full API structure</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+      <button class="attack-btn" onclick="runAttack('depth', this)">
+        <div>
+          <div class="name">5 — Depth / Circular DoS <span class="result-badge" id="badge-depth"></span></div>
+          <div class="desc">Sends 8-level nested circular query to exhaust server CPU/RAM</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+      <button class="attack-btn" onclick="runAttack('batching', this)">
+        <div>
+          <div class="name">6 — Alias / Batching <span class="result-badge" id="badge-batching"></span></div>
+          <div class="desc">Packs 50 login attempts into one HTTP request to bypass rate limiting</div>
+        </div>
+        <span class="arrow">▶</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Row -->
+  <div class="summary-grid">
+    <div class="summary-card"><div class="s-name">BOLA / IDOR</div><div class="s-badge pending" id="sum-bola">—</div></div>
+    <div class="summary-card"><div class="s-name">Mass Assignment</div><div class="s-badge pending" id="sum-mass">—</div></div>
+    <div class="summary-card"><div class="s-name">Data Exposure</div><div class="s-badge pending" id="sum-exposure">—</div></div>
+    <div class="summary-card"><div class="s-name">Introspection</div><div class="s-badge pending" id="sum-introspection">—</div></div>
+    <div class="summary-card"><div class="s-name">Depth DoS</div><div class="s-badge pending" id="sum-depth">—</div></div>
+    <div class="summary-card"><div class="s-name">Alias Batching</div><div class="s-badge pending" id="sum-batching">—</div></div>
+  </div>
+
+  <!-- Output Panel -->
+  <div class="output-panel">
+    <div class="output-header">
+      <h2>Output</h2>
+      <button class="clear-btn" onclick="clearOutput()">Clear</button>
+    </div>
+    <div id="output">Click any attack button to run it and see the output here...</div>
+  </div>
+
+</main>
+
+<script>
+const mode = { current: "vulnerable" };
+
+function colorize(text) {
+  return text.split('\n').map(line => {
+    if (line.includes('ATTACK SUCCEEDED') || line.includes('NOT MINE') || line.includes('[SENSITIVE]'))
+      return `<span class="line-red">${escHtml(line)}</span>`;
+    if (line.includes('ATTACK BLOCKED') || line.includes('[MINE]') || line.includes('[safe]') || line.includes('Blocked'))
+      return `<span class="line-green">${escHtml(line)}</span>`;
+    if (line.includes('======') || line.includes('ATTACK') || line.includes('RESULT'))
+      return `<span class="line-yellow">${escHtml(line)}</span>`;
+    if (line.includes('Logged in') || line.includes('Sending') || line.includes('Packing') || line.includes('Calling'))
+      return `<span class="line-blue">${escHtml(line)}</span>`;
+    if (line.trim() === '')
+      return '';
+    return `<span class="line-muted">${escHtml(line)}</span>`;
+  }).join('\n');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function runAttack(name, btn) {
+  const out = document.getElementById('output');
+  out.innerHTML = `<span class="spinner"></span><span class="line-blue">Running ${name} attack...</span>`;
+
+  btn.disabled = true;
+  btn.querySelector('.arrow').innerHTML = '<span class="spinner"></span>';
+
+  const res  = await fetch(`/api/run/${name}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ mode: mode.current })
+  });
+  const data = await res.json();
+
+  out.innerHTML = colorize(data.output || data.error || 'No output.');
+  out.scrollTop = out.scrollHeight;
+
+  btn.disabled = false;
+  btn.querySelector('.arrow').innerHTML = '▶';
+
+  // Update badges
+  const succeeded = data.output && data.output.includes('ATTACK SUCCEEDED');
+  const blocked   = data.output && data.output.includes('ATTACK BLOCKED');
+
+  const badge = document.getElementById(`badge-${name}`);
+  const sum   = document.getElementById(`sum-${name}`);
+
+  if (succeeded) {
+    badge.className = 'result-badge succeeded'; badge.textContent = 'SUCCEEDED';
+    sum.className   = 's-badge succeeded';      sum.textContent   = 'SUCCEEDED';
+  } else if (blocked) {
+    badge.className = 'result-badge blocked'; badge.textContent = 'BLOCKED';
+    sum.className   = 's-badge blocked';      sum.textContent   = 'BLOCKED';
+  }
+}
+
+function clearOutput() {
+  document.getElementById('output').innerHTML = 'Output cleared. Click any attack to run it.';
+  ['bola','mass','exposure','introspection','depth','batching'].forEach(n => {
+    const b = document.getElementById(`badge-${n}`);
+    b.className = 'result-badge'; b.textContent = '';
+    const s = document.getElementById(`sum-${n}`);
+    s.className = 's-badge pending'; s.textContent = '—';
+  });
+}
+
+async function checkStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+    document.getElementById('restDot').className = 'dot ' + (data.rest    ? 'up' : 'down');
+    document.getElementById('gqlDot').className  = 'dot ' + (data.graphql ? 'up' : 'down');
+  } catch(e) {}
+}
+
+// Poll server status every 3 seconds
+checkStatus();
+setInterval(checkStatus, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# ── Web Frameworks ─────────────────────────────────────────────────────────────
+Flask==3.0.3
+flask-cors==4.0.1
+Flask-Limiter==3.7.0
+
+# ── GraphQL ────────────────────────────────────────────────────────────────────
+strawberry-graphql[flask]==0.235.1
+graphql-core==3.2.3
+
+# ── Database / ORM ─────────────────────────────────────────────────────────────
+SQLAlchemy==2.0.30
+Flask-SQLAlchemy==3.1.1
+
+# ── Authentication ─────────────────────────────────────────────────────────────
+PyJWT==2.8.0
+bcrypt==4.1.3
+cryptography==42.0.8
+
+# ── Input Validation / Serialisation ──────────────────────────────────────────
+marshmallow==3.21.3
+marshmallow-sqlalchemy==1.0.0
+
+# ── Query Security (GraphQL depth / complexity) ────────────────────────────────
+# complexity calculated manually via graphql-core AST (no third-party package needed)
+
+# ── Environment Config ─────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── HTTP Client (attack simulation scripts) ────────────────────────────────────
+requests==2.32.3
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+pytest==8.2.2
+pytest-flask==1.3.0
+pytest-cov==5.0.0
+httpretty==1.1.4
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+click==8.1.7
+colorama==0.4.6
+tabulate==0.9.0
